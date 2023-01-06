@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "GPT Everywhere",
+  "description": "Use ChatGPT on the whole internet.",
+  "version": "1.0",
+  "action": {
+    "default_popup": "gpt.html"
+  },
+  "permissions": [
+    "activeTab",
+    "clipboardWrite",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.openai.com/"
+  ],
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ]
+}
