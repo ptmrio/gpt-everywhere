@@ -4,13 +4,19 @@
   "description": "Use ChatGPT on the whole internet.",
   "version": "1.0",
   "action": {
-    "default_popup": "gpt.html"
+    "default_popup": "gpt.html",
+    "default_icon": "./img/logo-32x32.png"
   },
   "permissions": [
     "activeTab",
     "clipboardWrite",
     "storage"
   ],
+  "icons": {
+    "16": "./img/logo-16x16.png",
+    "32": "./img/logo-32x32.png",
+    "192": "./img/logo-192x192.png"
+  },
   "host_permissions": [
     "https://api.openai.com/"
   ],
