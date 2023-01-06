@@ -102,15 +102,24 @@ spinnerElement.innerHTML = `
 shadowRoot.appendChild(spinnerElement);
 
 
-// create a search bar prompt element as shadow DOM
+// create a search bar prompt element as shadow DOM with a copy icon in the textarea
+let placeholders = [
+    "Translate this text to German ...",
+    "Write a poem about this text ...",
+    "Summarize this text ...",
+    "Generate a title for this text ...",
+    "Generate a tweet about this text ...",
+    "Reply to this E-Mail ..."
+];
+
+let randomPlaceholder = placeholders[Math.floor(Math.random() * placeholders.length)];
+
 const searchPromptElement = document.createElement('div');
 searchPromptElement.id = 'gpt-search-prompt';
 searchPromptElement.innerHTML = `
     <form method="get" id="gpt-search-prompt-text">
-        <input id="gpt-search-prompt-input" type="text" placeholder="Enter your GPT Command ..." required>
-
+        <input id="gpt-search-prompt-input" type="text" placeholder="${randomPlaceholder}" required>
         <textarea id="gpt-search-prompt-textarea" placeholder="Enter additional GPT Context (or select context before pressing Ctrl + .) ..."></textarea>
-
         <button type="submit" id="gpt-search-prompt-button">Create Magic</button>
     </form>
 `;
@@ -397,6 +406,8 @@ styleElement.innerHTML = `
     .gpt-bounce {
         animation: gpt-bounce 750ms forwards;
     }
+
+
     `;
 shadowRoot.appendChild(styleElement);
 
