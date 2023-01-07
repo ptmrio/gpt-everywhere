@@ -4,12 +4,12 @@
 <body>
 
     <style>
-        body {
+        .columns {
             display: flex;
             gap: 1rem;
         }
 
-        body>* {
+        .columns>* {
             flex: 1;
         }
 
@@ -21,17 +21,21 @@
         input,
         textarea {
             padding: 1rem;
+            margin: 0;
         }
     </style>
-    <blockquote contenteditable>
+    <div class="columns">
+        <blockquote contenteditable>
+            <p>Quote: Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards</p>
+        </blockquote>
+
+        <textarea placeholder="textarea">Textarea: Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards</textarea>
+
+        <input type="text" placeholder="input" value="Input: Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards">
+
         <p>Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards</p>
-    </blockquote>
+    </div>
 
-    <textarea placeholder="textarea">Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards</textarea>
-
-    <input type="text" placeholder="input" value="Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards">
-
-    <p>Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards</p>
 </body>
 
 </html>
