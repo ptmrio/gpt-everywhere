@@ -22,7 +22,7 @@ let selectionEnd = null;
 let gptSettingApikey;
 let gptSettingDebug;
 
-const controller = new AbortController();
+let controller;
 
 // get options
 // todo: use await instead of then, but it doesn't work!?
@@ -38,7 +38,7 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
     window.addEventListener('keyup', function (event) {
         if (debug) {
             console.log("Key pressed: ", event.key);
-    
+
         }
 
         lastKeyPress = event.key;
@@ -166,6 +166,10 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
     shadowRoot.addEventListener('click', function (event) {
         if (event.target === shadowRoot.getElementById('gpt-search-prompt')) {
             searchPromptClose();
+            // also abort gptFetchWithSpinner
+            if (controller) {
+                controller.abort();
+            }
         }
     });
 
@@ -174,7 +178,9 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
         if (event.key === 'Escape') {
             searchPromptClose();
             // also abort gptFetchWithSpinner
-            controller.abort();
+            if (controller) {
+                controller.abort();
+            }
         }
     });
 
@@ -189,6 +195,8 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
         this.style.backgroundColor = 'lightgreen';
         setTimeout(() => {
             this.style.backgroundColor = '';
+            // close search prompt
+            searchPromptClose();
         }, 500);
 
     });
@@ -223,6 +231,8 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
     const endpoint = " https://api.openai.com/v1/completions";
 
     const gptCompletion = async (prompt) => {
+
+        controller = new AbortController();
 
         // hide copy button
         searchPrompt.querySelector('#gpt-search-prompt-copy-button').style.display = 'none';
