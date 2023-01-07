@@ -35,9 +35,10 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
     const debug = gptSettingDebug ? true : false;
 
     // Listen for the user double tapping the shift key
-    window.addEventListener('keydown', function (event) {
+    window.addEventListener('keyup', function (event) {
         if (debug) {
             console.log("Key pressed: ", event.key);
+    
         }
 
         lastKeyPress = event.key;
