@@ -9,7 +9,7 @@ let lastShiftPressTime = null;
 let lastKeyPress = null;
 
 // store currently active element
-let activeElement = null;
+let currentElement = null;
 
 // store current selection
 let isEditable = false;
@@ -38,14 +38,15 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
     window.addEventListener('keyup', function (event) {
         if (debug) {
             console.log("Key pressed: ", event.key);
-
         }
 
         lastKeyPress = event.key;
         if (event.key === 'Shift') {
 
             if (lastKeyPress === 'Shift' && Date.now() - lastShiftPressTime < 500) {
-                hasValue = typeof event.target.value !== "undefined";
+
+                currentElement = event.target;
+                hasValue = typeof currentElement.value !== "undefined";
 
                 event.preventDefault();
 
@@ -57,41 +58,53 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
                 // store currently active element
                 if (hasValue || event.target.isContentEditable) {
                     isEditable = true;
-                    activeElement = event.target;
                 }
                 else {
-                    activeElement = event.target.closest('[contenteditable]');
-                    if (activeElement) {
+                    if (currentElement.closest('[contenteditable]')) {
+                        currentElement = currentElement.closest('[contenteditable]');
                         isEditable = true;
                     }
                     else {
                         isEditable = false;
                     }
+
+                    // make focusable to focus back from close event
+                    if (currentElement.hasAttribute('tabindex')) {
+                        currentElement.dataset.gptRemoveTabindex = 'false';
+                    } else {
+                        currentElement.setAttribute('tabindex', '0')
+                        currentElement.dataset.gptRemoveTabindex = 'true';
+                    }
+
                 }
 
                 selectionText = '';
                 // get selection in contenteditable
                 if (hasValue) {
-                    selectionStart = activeElement.selectionStart;
-                    selectionEnd = activeElement.selectionEnd;
+                    selectionStart = currentElement.selectionStart;
+                    selectionEnd = currentElement.selectionEnd;
 
                     if (selectionStart === selectionEnd) {
                         selectionStart = 0;
-                        selectionEnd = activeElement.value.length;
+                        selectionEnd = currentElement.value.length;
                     }
 
-                    selectionText = activeElement.value.substring(selectionStart, selectionEnd);
+                    selectionText = currentElement.value.substring(selectionStart, selectionEnd);
                 }
                 // get selection in textarea or text field
                 else {
-                    let selection = window.getSelection();
+                    let selection = document.getSelection();
 
                     if (isEditable && selection.isCollapsed) {
-                        selection.selectAllChildren(activeElement);
+                        selection.selectAllChildren(currentElement);
                     }
 
                     selectionParameters = [selection.anchorNode, selection.anchorOffset, selection.focusNode, selection.focusOffset]
                     selectionText = selection.toString();
+                }
+
+                if (debug) {
+                    console.log("Selection: ", selectionText);
                 }
 
                 // Send the current input text to the background script
@@ -106,13 +119,17 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
 
     const spinnerElement = document.createElement('div');
     spinnerElement.id = 'gpt-spinner-wrapper';
-    spinnerElement.innerHTML = `
-        <div id="gpt-spinner"></div>
-    `;
+    spinnerElement.innerHTML = `<div id="gpt-spinner"></div>`;
     shadowRoot.appendChild(spinnerElement);
 
 
     // create a search bar prompt element as shadow DOM with a copy icon in the textarea
+    const searchPromptIframeElement = document.createElement('iframe');
+    searchPromptIframeElement.id = 'gpt-search-prompt-iframe';
+    searchPromptIframeElement.setAttribute('allow', 'clipboard-write');
+    searchPromptIframeElement.setAttribute('frameBorder', '0');
+    shadowRoot.appendChild(searchPromptIframeElement);
+
     let placeholders = [
         "Translate this text to German ...",
         "Write a poem about this text ...",
@@ -124,80 +141,280 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
 
     let randomPlaceholder = placeholders[Math.floor(Math.random() * placeholders.length)];
 
-    const searchPromptElement = document.createElement('div');
-    searchPromptElement.id = 'gpt-search-prompt';
-    searchPromptElement.innerHTML = `
-    <form method="get" id="gpt-search-prompt-text">
-        <input id="gpt-search-prompt-input" type="text" placeholder="${randomPlaceholder}" required>
-        <div id="gpt-search-prompt-textarea-container">
-            <button type="button" id="gpt-search-prompt-copy-button" title="Copy to clipboard">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Pro 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M224 0c-35.3 0-64 28.7-64 64V288c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V64c0-35.3-28.7-64-64-64H224zM64 160c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H288c35.3 0 64-28.7 64-64V384H288v64H64V224h64V160H64z"/></svg>
-            </button>
-            <textarea id="gpt-search-prompt-textarea" placeholder="Enter additional GPT Context (or select context before pressing Shift twice) ..."></textarea>
-        </div>
-        <button type="submit" id="gpt-search-prompt-button">Create Magic</button>
-    </form>
-`;
-    shadowRoot.appendChild(searchPromptElement);
+    // insert html into iframe
+    const searchPromptIframe = shadowRoot.getElementById('gpt-search-prompt-iframe');
+    const searchPromptIframeDocument = searchPromptIframe.contentDocument || searchPromptIframe.contentWindow.document;
+    searchPromptIframeDocument.open();
+    searchPromptIframeDocument.write(`
+        <html>
+            <head>
+                <style>
+                    body {
+                        margin: 0;
+                        padding: 0;
+                        background: transparent;
+                        border: none;
+                        outline: none;
+                        overflow: hidden;
+                        resize: none;
+                        font-family: inherit;
+                        font-size: inherit;
+                        line-height: inherit;
+                        color: inherit;
+                        -webkit-appearance: none;
+                        -moz-appearance: none;
+                        appearance: none;
+                    }
 
+                    #gpt-search-prompt {
+                        justify-content: center;
+                        align-items: center;
+                        background-color: rgba(55, 55, 55, 0.50);
+                        width: 100vw;
+                        height: 100vh;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        z-index: 99998;
+                        opacity: 0;
+                        transition: opacity 0.2s ease-in-out;
+                    }
 
-    // function for showing the search prompt
-    const searchPrompt = shadowRoot.getElementById('gpt-search-prompt');
+                    #gpt-search-prompt.gpt-show,
+                    #gpt-search-prompt .gpt-show {
+                        opacity: 1;
+                    }
+
+                    #gpt-search-prompt-text {
+                        width: clamp(320px, 66vw, 900px);
+                        background-color: white;
+                        border-radius: 10px;
+                        padding: 20px;
+                        overflow: auto;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        gap: 10px;
+                    }
+
+                    #gpt-search-prompt-input {
+                        background-color: white;
+                        border: 1px solid lightgray;
+                        border-radius: 5px;
+                        padding: 16px;
+                        font-size: 16px;
+                    }
+
+                    #gpt-search-prompt textarea:focus,
+                    #gpt-search-prompt input:focus {
+                        outline: none;
+                        border: 1px solid #f25a41;
+                    }
+
+                    #gpt-search-prompt-textarea {
+                        background-color: white;
+                        border: 1px solid lightgray;
+                        border-radius: 5px;
+                        padding: 16px;
+                        font-size: 16px;
+                        height: 10em;
+                        width: 100%;
+                    }
+
+                    #gpt-search-prompt-textarea-container {
+                        position: relative;
+                    }
+
+                    #gpt-search-prompt-copy-button {
+                        display: none;
+                        opacity: 0;
+                        position: absolute;
+                        right: 4px;
+                        top: 4px;
+                        border: 1px solid #f25a41;
+                        border-radius: 3px;
+                        padding: 4px 5px 3px 5px;
+                        font-size: 12px;
+                        background-color: #f25a41;
+                        color: white;
+                        cursor: pointer;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        transition: all 0.2s ease-in;
+                    }
+
+                    #gpt-search-prompt-copy-button svg {
+                        width: 1em;
+                        height: 1em;
+                        fill: white;
+                    }
+
+                    #gpt-search-prompt-button {
+                        border: 1px solid #f25a41;
+                        border-radius: 5px;
+                        padding: 16px;
+                        font-size: 16px;
+                        background-color: #f25a41;
+                        color: white;
+                        cursor: pointer;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        transition: all 0.2s ease-in;
+                    }
+
+                    #gpt-search-prompt button:hover,
+                    #gpt-search-prompt button:active,
+                    #gpt-search-prompt button:focus {
+                        background-color: lightcoral;
+                        color: darkred;
+                    }
+
+                    @keyframes gpt-bounce {
+                        from,
+                        to {
+                            transform: translate3d(0, 0, 0);
+                        }
+
+                        10%,
+                        30%,
+                        50%,
+                        70%,
+                        90% {
+                            transform: translate3d(-10px, 0, 0);
+                        }
+
+                        20%,
+                        40%,
+                        60%,
+                        80% {
+                            transform: translate3d(10px, 0, 0);
+                        }
+                    }
+
+                    .gpt-bounce {
+                        animation: gpt-bounce 750ms forwards;
+                    }
+                </style>
+            </head>
+            <body>
+                <div id="gpt-search-prompt">
+                    <form method="get" id="gpt-search-prompt-text">
+                        <input id="gpt-search-prompt-input" type="text" placeholder="${randomPlaceholder}" required>
+                        <div id="gpt-search-prompt-textarea-container">
+                            <button type="button" id="gpt-search-prompt-copy-button" title="Copy to clipboard">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Pro 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M224 0c-35.3 0-64 28.7-64 64V288c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V64c0-35.3-28.7-64-64-64H224zM64 160c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H288c35.3 0 64-28.7 64-64V384H288v64H64V224h64V160H64z"/></svg>
+                            </button>
+                            <textarea id="gpt-search-prompt-textarea" placeholder="Enter additional GPT Context (or select context before pressing Shift twice) ..."></textarea>
+                        </div>
+                        <button type="submit" id="gpt-search-prompt-button">Create Magic</button>
+                    </form>
+                </div>
+            </body>
+        </html>
+    `);
+
+    const searchPrompt = searchPromptIframeDocument.getElementById('gpt-search-prompt');
+
     const showSearchPrompt = ((context = "") => {
+        // hide copy button
+        searchPrompt.querySelector('#gpt-search-prompt-copy-button').style.display = 'none';
+        searchPrompt.querySelector('#gpt-search-prompt-copy-button').classList.remove('gpt-show');
+
+        // fill textarea with context
         const textarea = searchPrompt.querySelector('textarea');
         textarea.value = context;
+
+        // show iframe, then show prompt
+        searchPromptIframe.style.display = 'block';
         searchPrompt.style.display = 'flex';
         setTimeout(() => {
             searchPrompt.classList.add('gpt-show');
+            searchPrompt.querySelector('input').focus();
         }, 100);
 
-        searchPrompt.querySelector('input').focus();
     });
+
 
     // close
     const searchPromptClose = () => {
-        searchPrompt.classList.remove('gpt-show');
-        searchPrompt.addEventListener('transitionend', function () {
+        // abort existing fetch request
+        if (controller) {
+            controller.abort();
+        }
+
+        // hide prompt
+        searchPrompt.addEventListener('transitionend', function (event) {
             searchPrompt.style.display = 'none';
+            searchPromptIframe.style.display = 'none';
+
+            // place cursor back into active element
+            currentElement.focus();
+
+            // remove tabindex
+            if (currentElement.dataset.gptRemoveTabindex === 'true') {
+                currentElement.removeAttribute('tabindex');
+                currentElement.removeAttribute('data-gpt-remove-tabindex');
+            }
+
+
         }, { once: true });
+
+        searchPrompt.classList.remove('gpt-show');
     };
 
     // close when clicking outside of the search prompt
-    shadowRoot.addEventListener('click', function (event) {
-        if (event.target === shadowRoot.getElementById('gpt-search-prompt')) {
+    searchPrompt.addEventListener('click', function (event) {
+        if (event.target.id === 'gpt-search-prompt') {
             searchPromptClose();
-            // also abort gptFetchWithSpinner
-            if (controller) {
-                controller.abort();
-            }
         }
     });
 
     // close when pressing escape
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            searchPromptClose();
+        }
+    });
     shadowRoot.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
             searchPromptClose();
-            // also abort gptFetchWithSpinner
-            if (controller) {
-                controller.abort();
-            }
+        }
+    });
+    searchPrompt.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            searchPromptClose();
         }
     });
 
     // copy to clipboard
     searchPrompt.querySelector('#gpt-search-prompt-copy-button').addEventListener('click', function (event) {
-        const textarea = searchPrompt.querySelector('textarea');
-        textarea.select();
-        document.execCommand('copy');
-        textarea.blur();
 
-        // set background color temporarily to green
-        this.style.backgroundColor = 'lightgreen';
-        setTimeout(() => {
-            this.style.backgroundColor = '';
-            // close search prompt
-            searchPromptClose();
-        }, 500);
+        const textarea = searchPrompt.querySelector('textarea');
+
+        searchPrompt.querySelector('textarea').focus();
+        searchPrompt.querySelector('textarea').select();
+
+        if (searchPromptIframeDocument.execCommand("copy")) {
+            // set background color temporarily to green
+            this.addEventListener('transitionend', function (event) {
+                this.style.boxShadow = '';
+                this.addEventListener('transitionend', function (event) {
+                    event.stopPropagation();
+                    // close search prompt
+                    searchPromptClose();
+                }, { once: true });
+            }, { once: true });
+
+            this.style.boxShadow = '0 0 8px 8px lightgreen';
+        }
+        else {
+            // set background color temporarily to red
+            this.addEventListener('transitionend', function () {
+                this.style.boxShadow = '';
+            }, { once: true });
+
+            this.style.boxShadow = '0 0 8px 8px red';
+        }
 
     });
 
@@ -233,10 +450,6 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
     const gptCompletion = async (prompt) => {
 
         controller = new AbortController();
-
-        // hide copy button
-        searchPrompt.querySelector('#gpt-search-prompt-copy-button').style.display = 'none';
-        searchPrompt.querySelector('#gpt-search-prompt-copy-button').classList.remove('gpt-show');
 
         if (debug) {
             console.log("Prompt: " + prompt);
@@ -284,219 +497,97 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
 
         // replace selection with output
         if (hasValue) {
-            activeElement.value = activeElement.value.substring(0, selectionStart) + output + activeElement.value.substring(selectionEnd);
+            currentElement.value = currentElement.value.substring(0, selectionStart) + output + currentElement.value.substring(selectionEnd);
             searchPromptClose();
         } else {
-            // if (isEditable) {
-            //     let targetSelection = window.getSelection();
-            //     targetSelection.setBaseAndExtent(selectionParameters[0], selectionParameters[1], selectionParameters[2], selectionParameters[3]);
-
-            //     // replace selection
-            //     targetSelection.deleteFromDocument();
-            //     targetSelection.getRangeAt(0).insertNode(document.createTextNode(output));
-
-            //     searchPromptClose();
-            // }
-            // else {
-            searchPrompt.querySelector('textarea').value = output;
-            searchPrompt.querySelector('textarea').classList.add('gpt-bounce');
-            setTimeout(() => {
-                searchPrompt.querySelector('textarea').classList.remove('gpt-bounce');
-                // show copy button
-                searchPrompt.querySelector('#gpt-search-prompt-copy-button').style.display = 'block';
+            if (isEditable && document.execCommand('insertText', false, output)) {
+                searchPromptClose();
+            }
+            else {
+                searchPrompt.querySelector('textarea').value = output;
+                searchPrompt.querySelector('textarea').classList.add('gpt-bounce');
                 setTimeout(() => {
-                    searchPrompt.querySelector('#gpt-search-prompt-copy-button').classList.add('gpt-show');
-                }, 100);
-            }, 1000);
+                    searchPrompt.querySelector('textarea').classList.remove('gpt-bounce');
+                    // show copy button
+                    searchPrompt.querySelector('#gpt-search-prompt-copy-button').style.display = 'block';
+                    setTimeout(() => {
+                        searchPrompt.querySelector('#gpt-search-prompt-copy-button').classList.add('gpt-show');
+                    }, 100);
+                }, 1000);
 
-            // select textarea
-            searchPrompt.querySelector('textarea').focus();
-            searchPrompt.querySelector('textarea').select();
+                // select textarea
+                searchPrompt.querySelector('textarea').focus();
+                searchPrompt.querySelector('textarea').select();
 
-            // }
+            }
         }
-
-
     }
-
-
 
     // insert css into the DOM
-    const styleElement = document.createElement('style');
-    styleElement.innerHTML = `
-    *,
-    *::before,
-    *::after {
-        box-sizing: border-box;
+    const styleElement = shadowRoot.querySelector('style#gpt-style') ? shadowRoot.querySelector('style#gpt-style') : document.createElement('style');
+    if (!styleElement.hasAttribute('id')) {
+        styleElement.id = 'gpt-style';
+        styleElement.innerHTML = `
+            #gpt-search-prompt-iframe {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }
+
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+            }
+            #gpt-spinner-wrapper {
+                display: none;
+                justify-content: center;
+                align-items: center;
+                background-color: rgba(55, 55, 55, 0.50);
+                width: 100vw;
+                height: 100vh;
+                opacity: 0;
+                position: fixed;
+                top: 0;
+                left: 0;
+                z-index: 99999;
+            }
+
+            #gpt-spinner {
+                width: 80px;
+                height: 80px;
+
+                border: 2px solid #f3f3f3;
+                border-top: 3px solid #f25a41;
+                border-radius: 100%;
+
+                justify-self: center;
+
+                animation: gpt-spin 1s infinite linear;
+            }
+
+            @keyframes gpt-spin {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            #gpt-search-prompt-iframe.gpt-show {
+                display: block;
+            }
+
+            #gpt-spinner-wrapper.gpt-show {
+                opacity: 1;
+            }
+            `;
+        shadowRoot.appendChild(styleElement);
     }
-    #gpt-spinner-wrapper {
-        display: none;
-        justify-content: center;
-        align-items: center;
-        background-color: rgba(55, 55, 55, 0.33);
-        width: 100vw;
-        height: 100vh;
-        opacity: 0;
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 99999;
-    }
-
-    #gpt-spinner {
-        width: 80px;
-        height: 80px;
-
-        border: 2px solid #f3f3f3;
-        border-top: 3px solid #f25a41;
-        border-radius: 100%;
-
-        justify-self: center;
-
-        animation: gpt-spin 1s infinite linear;
-    }
-
-    @keyframes gpt-spin {
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    }
-
-    #gpt-search-prompt {
-        display: none;
-        justify-content: center;
-        align-items: center;
-        background-color: rgba(55, 55, 55, 0.33);
-        width: 100vw;
-        height: 100vh;
-        opacity: 0;
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 99998;
-        transition: opacity 0.2s ease-in;
-    }
-
-    #gpt-search-prompt.gpt-show,
-    #gpt-search-prompt .gpt-show,
-    #gpt-spinner-wrapper.gpt-show {
-        opacity: 1;
-    }
-
-    #gpt-search-prompt-text {
-        width: clamp(320px, 66vw, 900px);
-        background-color: white;
-        border-radius: 10px;
-        padding: 20px;
-        overflow: auto;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 10px;
-    }
-
-    #gpt-search-prompt-input {
-        background-color: white;
-        border: 1px solid lightgray;
-        border-radius: 5px;
-        padding: 16px;
-        font-size: 16px;
-    }
-
-    #gpt-search-prompt textarea:focus,
-    #gpt-search-prompt input:focus {
-        outline: none;
-        border: 1px solid #f25a41;
-    }
-
-    #gpt-search-prompt-textarea {
-        background-color: white;
-        border: 1px solid lightgray;
-        border-radius: 5px;
-        padding: 16px;
-        font-size: 16px;
-        height: 10em;
-        width: 100%;
-    }
-
-    #gpt-search-prompt-textarea-container {
-        position: relative;
-    }
-
-    #gpt-search-prompt-copy-button {
-        display: none;
-        opacity: 0;
-        position: absolute;
-        right: 4px;
-        top: 4px;
-        border: 1px solid #f25a41;
-        border-radius: 3px;
-        padding: 4px 5px 3px 5px;
-        font-size: 12px;
-        background-color: #f25a41;
-        color: white;
-        cursor: pointer;
-        font-weight: bold;
-        text-transform: uppercase;
-        transition: all 0.2s ease-in;
-    }
-
-    #gpt-search-prompt-copy-button svg {
-        width: 1em;
-        height: 1em;
-        fill: white;
-    }
-
-    #gpt-search-prompt-button {
-        border: 1px solid #f25a41;
-        border-radius: 5px;
-        padding: 16px;
-        font-size: 16px;
-        background-color: #f25a41;
-        color: white;
-        cursor: pointer;
-        font-weight: bold;
-        text-transform: uppercase;
-        transition: all 0.2s ease-in;
-    }
-
-    #gpt-search-prompt button:hover,
-    #gpt-search-prompt button:active,
-    #gpt-search-prompt button:focus {
-        background-color: lightcoral;
-        color: darkred;
-    }
-
-    @keyframes gpt-bounce {
-        from,
-        to {
-            transform: translate3d(0, 0, 0);
-        }
-
-        10%,
-        30%,
-        50%,
-        70%,
-        90% {
-            transform: translate3d(-10px, 0, 0);
-        }
-
-        20%,
-        40%,
-        60%,
-        80% {
-            transform: translate3d(10px, 0, 0);
-        }
-    }
-
-    .gpt-bounce {
-        animation: gpt-bounce 750ms forwards;
-    }
-    `;
-    shadowRoot.appendChild(styleElement);
 
     // Spinner
     const spinner = shadowRoot.querySelector('#gpt-spinner-wrapper');

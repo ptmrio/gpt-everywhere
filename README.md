@@ -4,6 +4,10 @@ This is a Chrome/Edge extension that allows you to use the OpenAI GPT-3 API to g
 Lightweight and fast, vanilla JavaScript, no dependencies.
 
 ---
+
+![Screenshot of GPT Everywhere](https://raw.githubusercontent.com/ptmrio/gpt-everywhere/main/img/screenshots/gpt-write-a-tweet.jpg)
+
+---
 ## How to use:
 ### Installation Instructions
 **Google Chrome / Microsoft Edge**

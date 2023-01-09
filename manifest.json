@@ -2,14 +2,14 @@
   "manifest_version": 3,
   "name": "GPT Everywhere",
   "description": "Use ChatGPT on the whole internet.",
-  "version": "1.0",
+  "version": "1.1",
   "action": {
     "default_popup": "gpt.html",
     "default_icon": "./img/logo-32x32.png"
   },
   "permissions": [
-    "activeTab",
     "clipboardWrite",
+    "clipboardRead",
     "storage"
   ],
   "icons": {
