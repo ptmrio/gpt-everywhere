@@ -217,7 +217,8 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
                         border-radius: 5px;
                         padding: 16px;
                         font-size: 16px;
-                        height: 10em;
+                        height: calc(2em + 32px);
+                        max-height: 66vh;
                         width: 100%;
                     }
 
@@ -323,10 +324,11 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
         // fill textarea with context
         const textarea = searchPrompt.querySelector('textarea');
         textarea.value = context;
-
+        
         // show iframe, then show prompt
         searchPromptIframe.style.display = 'block';
         searchPrompt.style.display = 'flex';
+        textarea.dispatchEvent(new Event('input'));
         setTimeout(() => {
             searchPrompt.classList.add('gpt-show');
             searchPrompt.querySelector('input').focus();
@@ -419,6 +421,13 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
     });
 
 
+    // auto resize textarea
+    const textarea = searchPrompt.querySelector('textarea');
+    textarea.addEventListener('input', function (event) {
+        this.style.height = 'auto';
+        this.style.height = this.scrollHeight + 3 + 'px';
+    });
+
     // submit search prompt
     searchPrompt.querySelector('form').addEventListener('submit', function (event) {
         event.preventDefault();
@@ -505,6 +514,7 @@ chrome.storage.sync.get(['gptSettingApikey', 'gptSettingDebug']).then((result) =
             }
             else {
                 searchPrompt.querySelector('textarea').value = output;
+                textarea.dispatchEvent(new Event('input'));
                 searchPrompt.querySelector('textarea').classList.add('gpt-bounce');
                 setTimeout(() => {
                     searchPrompt.querySelector('textarea').classList.remove('gpt-bounce');
