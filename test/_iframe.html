@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+
+    <body>
+
+        <style>
+            .columns {
+                display: flex;
+                gap: 1rem;
+            }
+
+            .columns>* {
+                flex: 1;
+            }
+
+            blockquote {
+                border: 1px solid grey;
+            }
+
+            blockquote,
+            input,
+            textarea {
+                padding: 1rem;
+                margin: 0;
+            }
+        </style>
+        <div class="columns">
+            <blockquote contenteditable>
+                <p>Quote: Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards</p>
+            </blockquote>
+
+            <textarea placeholder="textarea">Textarea: Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards</textarea>
+
+            <input type="text" placeholder="input" value="Input: Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards">
+
+            <p>Hello Mr. Ptmr, thank you for your E-Mail. Please download the extension on github. Regards</p>
+        </div>
+
+    </body>
+
+</html>

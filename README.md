@@ -22,7 +22,7 @@ Lightweight and fast, vanilla JavaScript, no dependencies.
 ### Usage Instructions
 First go to extension settings and enter an OpenAI API Key. You may generate a new API Key from https://beta.openai.com/account/api-keys
 
-Press `Shift` *twice* anywhere on the web.
+Press `Ctrl + .` anywhere on the web.
 
 Type a command in the command field, e.g. "Write an E-Mail reply"
 
