@@ -1,14 +1,16 @@
-chrome.commands.onCommand.addListener(async (command) => {
+chrome.commands.onCommand.addListener((command) => {
     if (command === 'gptShowPrompt') {
-        let queryOptions = { active: true, lastFocusedWindow: true };
-        let [tab] = await chrome.tabs.query(queryOptions);
+        (async () => {
+            let queryOptions = { active: true, lastFocusedWindow: true };
+            let [tab] = await chrome.tabs.query(queryOptions);
 
-        // execute script
-        chrome.scripting.executeScript(
-            {
-                target: { tabId: tab.id },
-                files: ['src/gptprompt.js'],
-            },
-            () => { });
+            // execute script
+            chrome.scripting.executeScript(
+                {
+                    target: { tabId: tab.id },
+                    files: ['src/gptprompt.js'],
+                },
+                () => { });
+        })();
     }
 });

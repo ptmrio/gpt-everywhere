@@ -34,24 +34,9 @@
         let spinner;
 
         if (initialized) {
-
-            // remove shadow root container
-            let shadowRootContainer = document.getElementById('gpt-shadow-root-container');
-            shadowRootContainer.parentNode.removeChild(shadowRootContainer);
-
-            // // get shadow root
-            // shadowRoot = document.getElementById('gpt-shadow-root-container').shadowRoot;
-
-            // // get iframe
-            // searchPromptIframe = shadowRoot.getElementById('gpt-search-prompt-iframe');
-
-            // // get iframe content
-            // searchPromptIframeDocument = searchPromptIframe.contentDocument || searchPromptIframe.contentWindow.document;
-
-            // // get spinner
-            // spinner = searchPromptIframeDocument.getElementById('gpt-spinner-wrapper');
+            document.getElementById('gpt-shadow-root-container').remove();
         }
-        // else {
+
         // create shadow root container
         let shadowRootContainer = document.createElement('div');
         shadowRootContainer.id = 'gpt-shadow-root-container';
@@ -327,7 +312,6 @@ html, body {
         spinner.id = 'gpt-spinner-wrapper';
         spinner.innerHTML = `<div id="gpt-spinner"></div>`;
         searchPromptIframeDocument.body.appendChild(spinner);
-        // }
 
         let searchPrompt = searchPromptIframeDocument.getElementById('gpt-search-prompt');
 
@@ -536,6 +520,8 @@ html, body {
                     currentElement.removeAttribute('data-gpt-remove-tabindex');
                 }
 
+                // remove shadowRootContainer
+                shadowRootContainer.remove();
 
             }, { once: true });
 
